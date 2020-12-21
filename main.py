@@ -28,7 +28,7 @@ if __name__ == "__main__":
     ]
 
     dzen_urls = [
-        "https://zen.yandex.ru/t/путин",
+        "https://zen.yandex.ru/t/subaru",
     ]
 
     # parser = Pikabu_Parser(pikabu_urls)
@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     parser = Dzen_Parser(dzen_urls)
     parser.get_webdriver(
-        path_to_webdriver_binary='yandexdriver.exe', is_headless=True)
+        path_to_webdriver_binary='/usr/local/bin/chromedriver', is_headless=False)
     parser.get_db_collection()
     parser.start_parse()
     # В среднем на 1 пост Яндекс-Дзена было потрачено 3 секунды

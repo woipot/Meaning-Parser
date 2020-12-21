@@ -1,2 +1,5 @@
 /yandexdriver.exe
 /venv/
+__pycache__
+.vscode
+*.log

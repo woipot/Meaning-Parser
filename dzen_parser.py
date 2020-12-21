@@ -15,6 +15,13 @@ import logging
 import json
 import html
 
+import re
+
+def str_contains_url(string):
+    regex = r"(?i)\b(^https?://zen.yandex.ru/)"
+    url = re.findall(regex,string)
+    return [x[0] for x in url]
+
 
 class Dzen_Parser(Web_Parser):
     def __init__(self, urls):
@@ -40,15 +47,19 @@ class Dzen_Parser(Web_Parser):
         self.db_collection = db.dzen
 
     def start_parse(self):
-        self.maxLimit = 30
+        self.maxLimit = 300
         self.limit = 0
         for url in self.urls:
+            # if (not str_contains_url(url)):
+            #     next
             self.__get_content__(html.unescape(url))
 
         for url in self.stories_urls:
-            self.driver.get(url)
-            requiredHtml = self.driver.page_source
-            self.__parse_story__(requiredHtml, url)
+            # if str_contains_url(url):
+            #     self.driver.get(url)
+            #     requiredHtml = self.driver.page_source
+            # else:
+            logging.info(url)
 
         self.driver.quit()
         self.client.close()
