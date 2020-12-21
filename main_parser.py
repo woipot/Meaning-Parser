@@ -32,12 +32,6 @@ class Web_Parser(ABC):
     def start_parse(self):
         pass
 
-    def __load_to_db__(self, story: dict) -> None:
-        try:
-            self.db_collection.insert_one(story)
-            logging.info(f'Stories in DB: {self.db_collection.count()}')
-        except errors.DuplicateKeyError:
-            return
 
     def __load_to_file__(self, story: dict, filename: str = 'all_stories.txt'):
         with open(filename, 'a', encoding='utf-8') as f:

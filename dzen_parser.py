@@ -1,27 +1,23 @@
-from abc import ABC, abstractmethod
-from pprint import pprint
-from main_parser import Web_Parser
+import html
+import logging
+import re
+import time
+
+from bs4 import BeautifulSoup
 from pymongo import MongoClient, errors
 from selenium import webdriver
-from bs4 import BeautifulSoup
-from threading import Thread
+from selenium.webdriver.common.keys import Keys
+from webdriver_manager.chrome import ChromeDriverManager
 
-import hashlib
-import re
-import html5lib
-import requests
-import time
-import logging
-import json
-import html
+from main_parser import Web_Parser
 
 
 class Dzen_Parser(Web_Parser):
-    def __init__(self, urls):
+    def __init__(self, urls, block_size: int, article_min_size: int, work_limit: int = 0):
         super().__init__(urls)
-        self.stories_urls = set()
-        self.old_stories_urls = set()
-        self.all_tags = set()
+        self.block_size = block_size
+        self.article_min_size = article_min_size
+        self.work_limit = work_limit
 
     def get_webdriver(self, path_to_webdriver_binary: str, is_headless: bool = True):
 
@@ -31,7 +27,7 @@ class Dzen_Parser(Web_Parser):
             options.add_argument('headless')
 
         self.driver = webdriver.Chrome(
-            path_to_webdriver_binary, options=options)
+            ChromeDriverManager().install(), options=options)
 
     def get_db_collection(self):
         client = MongoClient("mongodb://woipot:woipot@185.246.152.112/daryana")
@@ -40,15 +36,13 @@ class Dzen_Parser(Web_Parser):
         self.db_collection = db.dzen
 
     def start_parse(self):
-        self.maxLimit = 30
-        self.limit = 0
         for url in self.urls:
             self.__get_content__(html.unescape(url))
 
-        for url in self.stories_urls:
-            self.driver.get(url)
-            requiredHtml = self.driver.page_source
-            self.__parse_story__(requiredHtml, url)
+        # for url in self.stories_urls:
+        #     self.driver.get(url)
+        #     requiredHtml = self.driver.page_source
+        #     self.__parse_story__(requiredHtml, url)
 
         self.driver.quit()
         self.client.close()
@@ -59,13 +53,17 @@ class Dzen_Parser(Web_Parser):
 
         SCROLL_PAUSE_TIME = 2
 
+        self.driver.execute_script("window.open('');")
+        self.driver.switch_to.window(self.driver.window_handles[0])
         # Get scroll height
         last_height = self.driver.execute_script(
             "return document.body.scrollHeight")
 
         i = 0
+        savedUrlsCount = 0
+        unparsed_urls = set()
         while True:
-        # while i < 2:
+            # while i < 2:
             # Scroll down to bottom
             self.driver.execute_script(
                 "window.scrollTo(0, document.body.scrollHeight);")
@@ -78,6 +76,7 @@ class Dzen_Parser(Web_Parser):
                 "return document.body.scrollHeight")
 
             if new_height == last_height:
+                logging.info(f'end of url')
                 break
             last_height = new_height
             i += 1
@@ -85,8 +84,21 @@ class Dzen_Parser(Web_Parser):
 
             # Получение HTML-содержимого
             requiredHtml = self.driver.page_source
-            self.__get_urls__(requiredHtml)
-            if self.limit > self.maxLimit:
+            newUrls = self.__get_urls__(requiredHtml)
+            unparsed_urls |= newUrls
+
+            if len(unparsed_urls) > self.block_size:
+                self.driver.switch_to.window(self.driver.window_handles[1])
+                for page_url in unparsed_urls:
+                    self.driver.get(page_url)
+                    requiredHtml = self.driver.page_source
+                    savedUrlsCount += self.__parse_story__(requiredHtml, page_url)
+                self.driver.switch_to.window(self.driver.window_handles[0])
+                logging.info(f'new savedCount: {savedUrlsCount}')
+                unparsed_urls = set()
+
+            if savedUrlsCount > self.work_limit > 0:
+                logging.info(f'limit has reached')
                 break
 
         logging.info(f'Total iterations made: {i}')
@@ -98,10 +110,12 @@ class Dzen_Parser(Web_Parser):
             "a", {"class": "card-image-view-by-metrics__clickable"})
         logging.info(f'Stories found: {len(g_data)}')
 
-        self.limit += len(g_data)
+        stories_urls = set()
         for item in g_data:
             url = item.get('href')
-            self.stories_urls.add(url)
+            stories_urls.add(url)
+
+        return stories_urls
 
     def __parse_story__(self, requiredHtml, url):
 
@@ -110,6 +124,7 @@ class Dzen_Parser(Web_Parser):
         g_data = soup.find_all(
             "div", {"id": "article__page-root"})
 
+        savedCount = 0
         for item in g_data:
 
             contents = item.find_all("div", {"class": "article-render"})
@@ -121,7 +136,16 @@ class Dzen_Parser(Web_Parser):
 
                 story = dict(_id=url,
                              content=" ".join(text).replace('\"', ''))
-                if len(story["content"]) > 10:
+                if len(story["content"]) > self.article_min_size:
                     self.__load_to_db__(story)
+                    savedCount += 1
                     # self.__load_to_file__(
                     #     story=story, filename='dzen_stories.txt')
+        return savedCount
+
+    def __load_to_db__(self, story: dict) -> None:
+        try:
+            self.db_collection.insert_one(story)
+            logging.info(f'Stories in DB: {self.db_collection.count()}')
+        except errors.DuplicateKeyError:
+            return
