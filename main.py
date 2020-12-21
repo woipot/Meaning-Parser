@@ -28,7 +28,7 @@ if __name__ == "__main__":
     ]
 
     dzen_urls = [
-        "https://zen.yandex.ru/t/subaru",
+        "https://zen.yandex.ru/t/космос",
     ]
 
     # parser = Pikabu_Parser(pikabu_urls)
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     # parser.start_parse()
     # # В среднем на 1 пост Пикабу было потрачено 0.8 секунды
 
-    parser = Dzen_Parser(dzen_urls)
+    parser = Dzen_Parser(dzen_urls, 20, 100, 20)
     parser.get_webdriver(
         path_to_webdriver_binary='/usr/local/bin/chromedriver', is_headless=False)
     parser.get_db_collection()
