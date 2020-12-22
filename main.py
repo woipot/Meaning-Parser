@@ -37,7 +37,7 @@ if __name__ == "__main__":
     # parser.start_parse()
     # # В среднем на 1 пост Пикабу было потрачено 0.8 секунды
 
-    parser = Dzen_Parser(dzen_urls, 20, 100, 20)
+    parser = Dzen_Parser(dzen_urls, 5, 100, 20)
     parser.get_webdriver(
         path_to_webdriver_binary='yandexdriver.exe', is_headless=False)
     parser.get_db_collection()

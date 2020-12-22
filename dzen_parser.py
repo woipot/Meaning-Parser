@@ -6,7 +6,6 @@ import time
 from bs4 import BeautifulSoup
 from pymongo import MongoClient, errors
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 
 from main_parser import Web_Parser
@@ -60,7 +59,8 @@ class Dzen_Parser(Web_Parser):
             "return document.body.scrollHeight")
 
         i = 0
-        savedUrlsCount = 0
+        urls_saved_while_work = 0
+        parsed_stories = []
         unparsed_urls = set()
         while True:
             # while i < 2:
@@ -91,14 +91,21 @@ class Dzen_Parser(Web_Parser):
                 self.driver.switch_to.window(self.driver.window_handles[1])
                 for page_url in unparsed_urls:
                     self.driver.get(page_url)
-                    requiredHtml = self.driver.page_source
-                    savedUrlsCount += self.__parse_story__(requiredHtml, page_url)
+
+                    parsed_story_content = self.__parse_story__(self.driver.page_source)
+                    if parsed_story_content is not None:
+                        parsed_stories.append(dict(_id=page_url, content=parsed_story_content))
+
                 self.driver.switch_to.window(self.driver.window_handles[0])
-                logging.info(f'new savedCount: {savedUrlsCount}')
                 unparsed_urls = set()
 
-            if savedUrlsCount > self.work_limit > 0:
-                logging.info(f'limit has reached')
+                if len(parsed_stories) > self.block_size > 0:
+                    self.__save_group_to_bd__(parsed_stories)
+                    urls_saved_while_work += len(parsed_stories)
+                    parsed_stories = []
+
+            if urls_saved_while_work > self.work_limit > 0:
+                logging.info(f'limit has reached : {urls_saved_while_work}')
                 break
 
         logging.info(f'Total iterations made: {i}')
@@ -117,35 +124,50 @@ class Dzen_Parser(Web_Parser):
 
         return stories_urls
 
-    def __parse_story__(self, requiredHtml, url):
+    def __parse_story__(self, requiredHtml):
 
         soup = BeautifulSoup(requiredHtml, 'html5lib')
 
         g_data = soup.find_all(
             "div", {"id": "article__page-root"})
 
-        savedCount = 0
+        text = []
         for item in g_data:
 
             contents = item.find_all("div", {"class": "article-render"})
 
             for content in contents:
-                text = []
                 for p in content.find_all("p", {"class": "article-render__block article-render__block_unstyled"}):
-                    text.append(re.sub(r'[\t\v\r\n\f]+', ' ', p.text))
+                    block_text = re.sub(r'[\t\v\r\n\f]+', ' ', p.text)
+                    if len(block_text) > 0:
+                        text.append(block_text)
 
-                story = dict(_id=url,
-                             content=" ".join(text).replace('\"', ''))
-                if len(story["content"]) > self.article_min_size:
-                    self.__load_to_db__(story)
-                    savedCount += 1
-                    # self.__load_to_file__(
-                    #     story=story, filename='dzen_stories.txt')
-        return savedCount
+        story_content = " ".join(text).replace('\"', '')
 
-    def __load_to_db__(self, story: dict) -> None:
-        try:
-            self.db_collection.insert_one(story)
-            logging.info(f'Stories in DB: {self.db_collection.count()}')
-        except errors.DuplicateKeyError:
-            return
+        if len(story_content) > self.article_min_size:
+            return story_content
+            # self.__load_to_file__(
+            #     story=story, filename='dzen_stories.txt')
+        return None
+
+    # def __load_to_db__(self, story: dict) -> None:
+    #     try:
+    #         self.db_collection.insert_one(story)
+    #         logging.info(f'Stories in DB: {self.db_collection.count()}')
+    #     except errors.DuplicateKeyError:
+    #         return
+
+    def __save_group_to_bd__(self, parsed_stories):
+        db_count = self.db_collection.count()
+        duplicates_count = 0
+        logging.info(f'Ready to save block: {len(parsed_stories)}')
+        for story in parsed_stories:
+            try:
+                self.db_collection.insert_one(story)
+            except errors.DuplicateKeyError:
+                duplicates_count += 1
+
+        logging.info(f'Stories in DB: {db_count} + {len(parsed_stories)} - {duplicates_count} = {self.db_collection.count()}')
+
+
+
