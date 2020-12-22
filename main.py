@@ -24,27 +24,34 @@ if __name__ == "__main__":
     logging.info('Program started')
 
     pikabu_urls = [
-        "https://pikabu.ru/tag/стрит%20арт",
+        "https://pikabu.ru/tag/политика",
     ]
 
     dzen_urls = [
-        "https://zen.yandex.ru/t/космос",
+        # "https://zen.yandex.ru/t/apple",
+        # "https://zen.yandex.ru/t/iphone",
+        # "https://zen.yandex.ru/t/ios",
+        # "https://zen.yandex.ru/t/applemusic",
+        # "https://zen.yandex.ru/t/macbook",
+        "https://zen.yandex.ru/t/ipad",
+        "https://zen.yandex.ru/t/mac",
+        "https://zen.yandex.ru/t/airpods",
+        "https://zen.yandex.ru/t/macos",
+        "https://zen.yandex.ru/t/faceid",
+        "https://zen.yandex.ru/t/lightning",
+        "https://zen.yandex.ru/appleinsider.ru",
     ]
 
     # parser = Pikabu_Parser(pikabu_urls)
-    # parser.get_webdriver(path_to_webdriver_binary='yandexdriver.exe', is_headless=True)
+    # parser.get_webdriver(path_to_webdriver_binary='yandexdriver.exe', is_headless=False)
     # parser.get_db_collection()
     # parser.start_parse()
-    # # В среднем на 1 пост Пикабу было потрачено 0.8 секунды
 
-    parser = Dzen_Parser(dzen_urls, 5, 100, 20)
-    parser.get_webdriver(
-        path_to_webdriver_binary='yandexdriver.exe', is_headless=False)
+    parser = Dzen_Parser(dzen_urls, 5, 100)
+    parser.get_webdriver(path_to_webdriver_binary='yandexdriver.exe', is_headless=False)
     parser.get_db_collection()
     parser.start_parse()
-    # В среднем на 1 пост Яндекс-Дзена было потрачено 3 секунды
 
     logging.info('Program finished\n')
 
 
-# TODO: При объединении данных в одну БД надо будет отсекать записи, где нет контента (это были записи с картинками или видео)

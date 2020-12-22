@@ -62,6 +62,7 @@ class Dzen_Parser(Web_Parser):
         urls_saved_while_work = 0
         parsed_stories = []
         unparsed_urls = set()
+        parsed_urls = set()
         while True:
             # while i < 2:
             # Scroll down to bottom
@@ -87,9 +88,10 @@ class Dzen_Parser(Web_Parser):
             newUrls = self.__get_urls__(requiredHtml)
             unparsed_urls |= newUrls
 
-            if len(unparsed_urls) > self.block_size:
+            unikal = unparsed_urls - parsed_urls
+            if len(unikal) > self.block_size:
                 self.driver.switch_to.window(self.driver.window_handles[1])
-                for page_url in unparsed_urls:
+                for page_url in unikal:
                     self.driver.get(page_url)
 
                     parsed_story_content = self.__parse_story__(self.driver.page_source)
@@ -97,6 +99,7 @@ class Dzen_Parser(Web_Parser):
                         parsed_stories.append(dict(_id=page_url, content=parsed_story_content))
 
                 self.driver.switch_to.window(self.driver.window_handles[0])
+                parsed_urls |= unparsed_urls
                 unparsed_urls = set()
 
                 if len(parsed_stories) > self.block_size > 0:
