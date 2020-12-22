@@ -33,7 +33,7 @@ class Pikabu_Parser(Web_Parser):
             ChromeDriverManager().install(), options=options)
 
     def get_db_collection(self):
-        client = MongoClient("mongodb://woipot:woipot@185.246.152.112/daryana")
+        client = MongoClient("mongodb://woipot:woipot@aqulasoft.com/daryana")
         self.clinent = client
         db = client.web_parser
         self.db_collection = db.pikabu
