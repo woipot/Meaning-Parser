@@ -74,7 +74,7 @@ class Article_Parser():
         return text
 
     def createDefaultSet(self, dict):
-        # self.db_res_collection.drop()
+        self.db_res_collection.drop()
         tfidf_vectorizer = TfidfVectorizer(use_idf=True)
         for meaning in dict:
             meaningArticles = []
@@ -89,7 +89,7 @@ class Article_Parser():
             df = df.sort_values('TF-IDF', ascending=False)
             print("\n" + meaning)
             head = df.head(30)
-            # self.__load_to_tfdif_db__(meaning, head)
+            self.__load_to_tfdif_db__(meaning, head)
             print(head)
 
     def __load_to_tfdif_db__(self, meaning, dataFrame) -> None:
