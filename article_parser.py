@@ -69,7 +69,6 @@ class Article_Parser():
 
     def createDefaultSet(self, dict):
         self.db_res_collection.drop()
-        tfidf_vectorizer = TfidfVectorizer(use_idf=True)
         for meaning in dict:
             meaningArticles = []
             for articleUrl in dict[meaning]:
@@ -78,13 +77,33 @@ class Article_Parser():
                     continue
 
                 meaningArticles.append(self.clearContent(text['content']))
-            values = tfidf_vectorizer.fit_transform(meaningArticles)
-            df = pd.DataFrame(values[0].T.todense(), index=tfidf_vectorizer.get_feature_names(), columns=["TF-IDF"])
-            df = df.sort_values('TF-IDF', ascending=False)
+
             print("\n" + meaning)
-            head = df.head(30)
+            head = self.calculateTfidf(meaningArticles)
             self.__load_to_tfdif_db__(meaning, head)
+
             print(head)
+
+    def fitToDefaultSet(self, limit):
+        result = dict()
+
+        parsedCount = 0
+        for article in self.db_collection.find():
+            text = self.clearContent(article['content'])
+            head = self.calculateTfidf([text])
+            print("\n\n" + article['_id'])
+            print(head)
+
+            parsedCount += 1
+            if parsedCount > limit:
+                break
+
+    def calculateTfidf(self, documents):
+        tfidf_vectorizer = TfidfVectorizer(use_idf=True)
+        values = tfidf_vectorizer.fit_transform(documents)
+        df = pd.DataFrame(values[0].T.todense(), index=tfidf_vectorizer.get_feature_names(), columns=["TF-IDF"])
+        df = df.sort_values('TF-IDF', ascending=False)
+        return df.head(30)
 
     def __load_to_tfdif_db__(self, meaning, dataFrame) -> None:
         try:

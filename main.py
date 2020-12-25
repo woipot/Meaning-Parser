@@ -25,7 +25,8 @@ if __name__ == "__main__":
     # logging.info('Program started')
     article_parser = Article_Parser()
     # article_parser.readFromDB()
-    article_parser.createDefaultSet(readBaseDataSetFromFile("meanings.json"))
+    # article_parser.createDefaultSet(readBaseDataSetFromFile("meanings.json"))
+    fitedList = article_parser.fitToDefaultSet(10)
 
     # pikabu_urls = [
     #     "https://pikabu.ru/tag/iphone",
