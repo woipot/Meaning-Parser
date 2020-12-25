@@ -1,28 +1,13 @@
-import emoji
-from sklearn.feature_extraction.text import TfidfVectorizer
-from abc import ABC, abstractmethod
-
-from webdriver_manager.chrome import ChromeDriverManager
-
-from pymongo import MongoClient, errors
-from selenium import webdriver
-from bs4 import BeautifulSoup
-from threading import Thread
-import pandas as pd
-import hashlib
-import re
-import html5lib
-import html
-import requests
-import time
-import logging
 import json
+import logging
 import string
 
-
-import nltk
-from nltk.tokenize import sent_tokenize, word_tokenize
+import emoji
+import pandas as pd
 import pymorphy2
+from nltk.tokenize import word_tokenize
+from pymongo import MongoClient, errors
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 morph = pymorphy2.MorphAnalyzer()
 
@@ -83,6 +68,7 @@ class Article_Parser():
         return text
 
     def createDefaultSet(self, dict):
+        self.db_res_collection.drop()
         tfidf_vectorizer = TfidfVectorizer(use_idf=True)
         for meaning in dict:
             meaningArticles = []
@@ -96,12 +82,15 @@ class Article_Parser():
             df = pd.DataFrame(values[0].T.todense(), index=tfidf_vectorizer.get_feature_names(), columns=["TF-IDF"])
             df = df.sort_values('TF-IDF', ascending=False)
             print("\n" + meaning)
-            print(df.head(25))
+            head = df.head(30)
+            self.__load_to_tfdif_db__(meaning, head)
+            print(head)
 
-
-
-
-        pass
+    def __load_to_tfdif_db__(self, meaning, dataFrame) -> None:
+        try:
+            self.db_res_collection.insert_one(dict(_id=meaning, words=dataFrame.to_json(force_ascii=False)))
+        except errors.DuplicateKeyError:
+            return
 
     def __load_from_db__(self, _id: string) -> string:
 
