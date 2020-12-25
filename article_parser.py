@@ -3,6 +3,8 @@ import logging
 import re
 import string
 
+import ssl
+import nltk
 import emoji
 import pandas as pd
 import pymorphy2
@@ -13,7 +15,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 morph = pymorphy2.MorphAnalyzer()
 from nltk.corpus import stopwords
 
-stop_words = set(stopwords.words('russian'))
+
 
 print(morph.parse('KDE')[0].normal_form)
 
@@ -34,6 +36,17 @@ class Article_Parser():
         self.db_collection = db.pikabu
         self.db_res_collection = db.parsed_article
         self.def_set_collection = db.def_set_parsed_articles
+
+        try:
+            _create_unverified_https_context = ssl._create_unverified_context
+        except AttributeError:
+            pass
+        else:
+            ssl._create_default_https_context = _create_unverified_https_context
+
+        nltk.download('punkt')
+        nltk.download('stopwords')
+        self.stop_words = set(stopwords.words('russian'))
 
     def __del__(self):
         self.client.close()
@@ -65,7 +78,7 @@ class Article_Parser():
         pattern = re.compile("^[^\d\W]+$")
 
         for word in a_words:
-            if word not in stop_words and pattern.match(word):
+            if word not in self.stop_words and pattern.match(word):
                 p = morph.parse(word.translate(
                     str.maketrans('', '', string.punctuation)))[0]
                 functors_pos = {'INTJ', 'PRCL', 'CONJ',
