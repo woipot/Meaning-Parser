@@ -8,7 +8,7 @@ from pymongo import MongoClient, errors
 from selenium import webdriver
 from bs4 import BeautifulSoup
 from threading import Thread
-
+import pandas as pd
 import hashlib
 import re
 import html5lib
@@ -93,7 +93,10 @@ class Article_Parser():
 
                 meaningArticles.append(self.clearContent(text['content']))
             values = tfidf_vectorizer.fit_transform(meaningArticles)
-            f_names = tfidf_vectorizer.get_feature_names()
+            df = pd.DataFrame(values[0].T.todense(), index=tfidf_vectorizer.get_feature_names(), columns=["TF-IDF"])
+            df = df.sort_values('TF-IDF', ascending=False)
+            print("\n" + meaning)
+            print(df.head(25))
 
 
 
