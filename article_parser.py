@@ -1,6 +1,7 @@
 import json
 import logging
 import string
+import re
 
 import emoji
 import pandas as pd
@@ -10,6 +11,9 @@ from pymongo import MongoClient, errors
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 morph = pymorphy2.MorphAnalyzer()
+from nltk.corpus import stopwords
+
+stop_words = set(stopwords.words('russian'))
 
 print(morph.parse('KDE')[0].normal_form)
 
@@ -57,18 +61,20 @@ class Article_Parser():
         a_words = word_tokenize(a, language="russian")
 
         text = ' '
+        pattern = re.compile("^[^\d\W]+$")
 
         for word in a_words:
-            p = morph.parse(word.translate(
-                str.maketrans('', '', string.punctuation)))[0]
-            functors_pos = {'INTJ', 'PRCL', 'CONJ',
-                            'PREP', 'NPRO', 'NUMR'}
-            if p.tag.POS is not None and p.tag.POS not in functors_pos:
-                text += p.normal_form + ' '
+            if word not in stop_words and pattern.match(word):
+                p = morph.parse(word.translate(
+                    str.maketrans('', '', string.punctuation)))[0]
+                functors_pos = {'INTJ', 'PRCL', 'CONJ',
+                                'PREP', 'NPRO', 'NUMR'}
+                if p.tag.POS is not None and p.tag.POS not in functors_pos:
+                    text += p.normal_form + ' '
         return text
 
     def createDefaultSet(self, dict):
-        self.db_res_collection.drop()
+        # self.db_res_collection.drop()
         tfidf_vectorizer = TfidfVectorizer(use_idf=True)
         for meaning in dict:
             meaningArticles = []
@@ -83,7 +89,7 @@ class Article_Parser():
             df = df.sort_values('TF-IDF', ascending=False)
             print("\n" + meaning)
             head = df.head(30)
-            self.__load_to_tfdif_db__(meaning, head)
+            # self.__load_to_tfdif_db__(meaning, head)
             print(head)
 
     def __load_to_tfdif_db__(self, meaning, dataFrame) -> None:
