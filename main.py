@@ -7,7 +7,6 @@ from article_parser import Article_Parser
 
 # from pikabu_parser import Pikabu_Parser
 # from nltk.tokenize import sent_tokenize, word_tokenize
-
 logging.basicConfig(format=u'[%(asctime)s] # %(levelname)-8s [%(filename)s] %(message)s',
                     filename="web_parser.log", level=logging.INFO)
 
@@ -21,13 +20,14 @@ def readBaseDataSetFromFile(path):
 
 if __name__ == "__main__":
     # from nltk.tokenize import sent_tokenize # разбивает на предложения
+    # nltk.download()
     nltk.download('punkt')
     nltk.download('stopwords')
     # logging.info('Program started')
     article_parser = Article_Parser()
     # article_parser.readFromDB()
-    # article_parser.createDefaultSet(readBaseDataSetFromFile("meanings.json"))
-    fitedList = article_parser.fitToDefaultSet(10)
+    article_parser.createDefaultSet(readBaseDataSetFromFile("meanings.json"))
+    # fitedList = article_parser.fitToDefaultSet(10)
 
     # pikabu_urls = [
     #     "https://pikabu.ru/tag/iphone",

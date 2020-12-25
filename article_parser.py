@@ -1,7 +1,7 @@
 import json
 import logging
-import string
 import re
+import string
 
 import emoji
 import pandas as pd
@@ -33,6 +33,7 @@ class Article_Parser():
         db = self.client.web_parser
         self.db_collection = db.pikabu
         self.db_res_collection = db.parsed_article
+        self.def_set_collection = db.def_set_parsed_articles
 
     def __del__(self):
         self.client.close()
@@ -75,6 +76,8 @@ class Article_Parser():
 
     def createDefaultSet(self, dict):
         self.db_res_collection.drop()
+        self.def_set_collection.drop()
+
         for meaning in dict:
             meaningArticles = []
             for articleUrl in dict[meaning]:
@@ -86,12 +89,16 @@ class Article_Parser():
 
             print("\n" + meaning)
             head = self.calculateTfidf(meaningArticles)
-            self.__load_to_tfdif_db__(meaning, head)
-
+            self.__save_to_tfdif_db__(meaning, head)
             print(head)
+            self.__save_def_set_to_db__(meaning, dict[meaning])
+
 
     def fitToDefaultSet(self, limit):
         result = dict()
+        meaningsDefSet = self.__load_meaning_set_from__bd()
+        if meaningsDefSet is None:
+            return
 
         parsedCount = 0
         for article in self.db_collection.find():
@@ -99,6 +106,7 @@ class Article_Parser():
             head = self.calculateTfidf([text])
             print("\n\n" + article['_id'])
             print(head)
+
 
             parsedCount += 1
             if parsedCount > limit:
@@ -111,11 +119,22 @@ class Article_Parser():
         df = df.sort_values('TF-IDF', ascending=False)
         return df.head(30)
 
-    def __load_to_tfdif_db__(self, meaning, dataFrame) -> None:
+    def __save_to_tfdif_db__(self, meaning, dataFrame) -> None:
         try:
             self.db_res_collection.insert_one(dict(_id=meaning, words=dataFrame.to_json(force_ascii=False)))
         except errors.DuplicateKeyError:
             return
+
+    def __load_meaning_set_from__bd(self):
+        try:
+            texts = [i for i in self.db_res_collection.find()]
+            if len(texts) > 0:
+                return texts
+
+            return None
+        except Exception:
+            return None
+        pass
 
     def __load_from_db__(self, _id: string) -> string:
 
@@ -128,9 +147,15 @@ class Article_Parser():
         except Exception:
             return None
 
-    def __load_to_db__(self, story: dict) -> None:
+    def __save_to_db__(self, story: dict) -> None:
         try:
             self.db_collection.insert_one(story)
             logging.info(f'Stories in DB: {self.db_collection.count()}')
+        except errors.DuplicateKeyError:
+            return
+
+    def __save_def_set_to_db__(self, id, listUrls) -> None:
+        try:
+            self.def_set_collection.insert_one(dict(_id=id, urls=json.dumps(listUrls)))
         except errors.DuplicateKeyError:
             return
