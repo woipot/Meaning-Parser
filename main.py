@@ -22,6 +22,7 @@ def readBaseDataSetFromFile(path):
 if __name__ == "__main__":
     # from nltk.tokenize import sent_tokenize # разбивает на предложения
     nltk.download('punkt')
+    nltk.download('stopwords')
     # logging.info('Program started')
     article_parser = Article_Parser()
     # article_parser.readFromDB()
