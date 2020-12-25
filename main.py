@@ -1,21 +1,31 @@
-import logging
 import json
-# from pikabu_parser import Pikabu_Parser
+import logging
+
+import nltk
 
 from article_parser import Article_Parser
-import nltk
+
+# from pikabu_parser import Pikabu_Parser
 # from nltk.tokenize import sent_tokenize, word_tokenize
-import pymorphy2
 
 logging.basicConfig(format=u'[%(asctime)s] # %(levelname)-8s [%(filename)s] %(message)s',
                     filename="web_parser.log", level=logging.INFO)
 
+
+def readBaseDataSetFromFile(path):
+    with open(path, encoding='UTF8') as json_file:
+        data = json.load(json_file)
+
+    return data
+
+
 if __name__ == "__main__":
-    #from nltk.tokenize import sent_tokenize # разбивает на предложения
+    # from nltk.tokenize import sent_tokenize # разбивает на предложения
     nltk.download('punkt')
     # logging.info('Program started')
     article_parser = Article_Parser()
-    article_parser.readFromDB()
+    # article_parser.readFromDB()
+    article_parser.createDefaultSet(readBaseDataSetFromFile("meanings.json"))
 
     # pikabu_urls = [
     #     "https://pikabu.ru/tag/iphone",

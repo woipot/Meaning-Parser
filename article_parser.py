@@ -40,7 +40,7 @@ def give_emoji_free_text(text):
 class Article_Parser():
     def __init__(self):
         self.client = MongoClient(
-            "mongodb://woipot:woipot@185.246.152.112/daryana")
+            "mongodb://forichok:forichok1@185.246.152.112/daryana")
         db = self.client.web_parser
         self.db_collection = db.pikabu
         self.db_res_collection = db.parsed_article
@@ -49,47 +49,67 @@ class Article_Parser():
         self.client.close()
 
     def readFromDB(self):
-        emoji_pattern = re.compile("["
-                                   u"\U0001F600-\U0001F64F"  # emoticons
-                                   u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-                                   u"\U0001F680-\U0001F6FF"  # transport & map symbols
-                                   u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
-                                   u"\U00002702-\U000027B0"
-                                   u"\U000024C2-\U0001F251"
-                                   u"\U0001f926-\U0001f937"
-                                   u"\u200d"
-                                   u"\u2640-\u2642"
-                                   "]+", flags=re.UNICODE)
         self.db_res_collection.drop()
         print(self.db_collection.count())
         all_a = []
-        cou = 0
         for article in self.db_collection.find():
 
-            a = give_emoji_free_text(article['content'].encode('utf8'))
-            words = {}
-            a_words = word_tokenize(a, language="russian")
+            text = self.clearContent(article['content'])
 
-            text = ' '
-
-            for word in a_words:
-                p = morph.parse(word.translate(
-                    str.maketrans('', '', string.punctuation)))[0]
-                functors_pos = {'INTJ', 'PRCL', 'CONJ',
-                                'PREP', 'NPRO', 'NUMR'}
-                if p.tag.POS is not None and p.tag.POS not in functors_pos:
-                    text += p.normal_form + ' '
-            cou += 1
-            print(str(cou) + '\n')
-            if cou > 50:
-                break
             all_a.append(text)
+            if len(all_a) > 50:
+                print(len(all_a))
+                break
 
         tfidf_vectorizer = TfidfVectorizer()
         values = tfidf_vectorizer.fit_transform(all_a)
         f_names = tfidf_vectorizer.get_feature_names()
         shape = print(values.shape)
         print(json.dumps(values))
+
+    def clearContent(self, content: string):
+        a = give_emoji_free_text(content.encode('utf8'))
+        a_words = word_tokenize(a, language="russian")
+
+        text = ' '
+
+        for word in a_words:
+            p = morph.parse(word.translate(
+                str.maketrans('', '', string.punctuation)))[0]
+            functors_pos = {'INTJ', 'PRCL', 'CONJ',
+                            'PREP', 'NPRO', 'NUMR'}
+            if p.tag.POS is not None and p.tag.POS not in functors_pos:
+                text += p.normal_form + ' '
+        return text
+
+    def createDefaultSet(self, dict):
+        tfidf_vectorizer = TfidfVectorizer(use_idf=True)
+        for meaning in dict:
+            meaningArticles = []
+            for articleUrl in dict[meaning]:
+                text = self.__load_from_db__(articleUrl)
+                if text is None:
+                    continue
+
+                meaningArticles.append(self.clearContent(text['content']))
+            values = tfidf_vectorizer.fit_transform(meaningArticles)
+            f_names = tfidf_vectorizer.get_feature_names()
+
+
+
+
+        pass
+
+    def __load_from_db__(self, _id: string) -> string:
+
+        try:
+            texts = [i for i in self.db_collection.find({"_id": _id})]
+            if len(texts) > 0:
+                return texts[0]
+
+            return None
+        except Exception:
+            return None
 
     def __load_to_db__(self, story: dict) -> None:
         try:
