@@ -28,6 +28,33 @@ def give_emoji_free_text(text):
     return clean_text
 
 
+def defaultFitFunction(headDict, meaningsDefSet):
+    meaningsMathDict = dict()
+
+    for meaning in meaningsDefSet:
+        value = None
+        for defWord in meaningsDefSet[meaning]:
+            defWordValue = meaningsDefSet[meaning][defWord]
+            if defWord in headDict.keys():
+                if value is None:
+                    value = abs(defWordValue - headDict[defWord])
+                else:
+                    value += abs(defWordValue - headDict[defWord])
+
+        if value is not None:
+            meaningsMathDict[meaning] = value
+
+    resultMeaning = 'Undefined'
+    resultValue = None
+    for meaning in meaningsMathDict:
+       if resultValue is None or meaningsMathDict[meaning] < resultValue:
+           resultValue = meaningsMathDict[meaning]
+           resultMeaning = meaning
+
+    print(f'Meaning = {resultMeaning}; near in (best match is 0): {resultValue}')
+    return None if resultValue is None else resultMeaning
+
+
 class Article_Parser():
     def __init__(self):
         self.client = MongoClient(
@@ -119,7 +146,9 @@ class Article_Parser():
             head = self.calculateTfidf([text])
             print("\n\n" + article['_id'])
             print(head)
+            headDict = head['TF-IDF']
 
+            self.articleMeaning(headDict, meaningsDefSet)
 
             parsedCount += 1
             if parsedCount > limit:
@@ -132,6 +161,10 @@ class Article_Parser():
         df = df.sort_values('TF-IDF', ascending=False)
         return df.head(30)
 
+    def articleMeaning(self, words, meaningsDefSet):
+        defaultFitFunction(words, meaningsDefSet)
+        pass
+
     def __save_to_tfdif_db__(self, meaning, dataFrame) -> None:
         try:
             self.db_res_collection.insert_one(dict(_id=meaning, words=dataFrame.to_json(force_ascii=False)))
@@ -142,7 +175,10 @@ class Article_Parser():
         try:
             texts = [i for i in self.db_res_collection.find()]
             if len(texts) > 0:
-                return texts
+                textsRepairedFromJson = dict()
+                for meaning in texts:
+                    textsRepairedFromJson[meaning['_id']] = json.loads(meaning['words'])['TF-IDF']
+                return textsRepairedFromJson
 
             return None
         except Exception:
