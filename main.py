@@ -1,7 +1,8 @@
 import json
 import logging
+import time
 
-from article_parser import Article_Parser
+from articleparser import ArticleParser
 
 # from pikabu_parser import Pikabu_Parser
 # from nltk.tokenize import sent_tokenize, word_tokenize
@@ -20,10 +21,21 @@ if __name__ == "__main__":
     # from nltk.tokenize import sent_tokenize # разбивает на предложения
 
     # logging.info('Program started')
-    article_parser = Article_Parser()
-    # article_parser.readFromDB()
+    article_parser = ArticleParser()
+
+
     # article_parser.createDefaultSet(readBaseDataSetFromFile("meanings.json"))
-    fitedList = article_parser.fitToDefaultSet(10)
+
+    timing = time.time()
+    fitedList = article_parser.fitToDefaultSet(2000)
+    print(f"\nNew DEF set ready")
+    for i in fitedList:
+        print(f"{i} : {len(fitedList[i])}")
+    print(f"\nEND time elapsed - {time.time() - timing}")
+
+
+    article_parser.createDefaultSet(fitedList)
+
 
     # pikabu_urls = [
     #     "https://pikabu.ru/tag/iphone",

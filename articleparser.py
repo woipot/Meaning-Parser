@@ -1,11 +1,10 @@
 import json
-import logging
 import re
+import ssl
 import string
 
-import ssl
-import nltk
 import emoji
+import nltk
 import pandas as pd
 import pymorphy2
 from nltk.tokenize import word_tokenize
@@ -15,12 +14,10 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 morph = pymorphy2.MorphAnalyzer()
 from nltk.corpus import stopwords
 
-
-
 print(morph.parse('KDE')[0].normal_form)
 
 
-def give_emoji_free_text(text):
+def giveEmojiFreeText(text):
     allchars = [str for str in text.decode('utf-8')]
     emoji_list = [c for c in allchars if c in emoji.UNICODE_EMOJI]
     clean_text = ' '.join([str for str in text.decode(
@@ -47,15 +44,15 @@ def defaultFitFunction(headDict, meaningsDefSet):
     resultMeaning = 'Undefined'
     resultValue = None
     for meaning in meaningsMathDict:
-       if resultValue is None or meaningsMathDict[meaning] < resultValue:
-           resultValue = meaningsMathDict[meaning]
-           resultMeaning = meaning
+        if resultValue is None or meaningsMathDict[meaning] < resultValue:
+            resultValue = meaningsMathDict[meaning]
+            resultMeaning = meaning
 
     print(f'Meaning = {resultMeaning}; near in (best match is 0): {resultValue}')
     return None if resultValue is None else resultMeaning
 
 
-class Article_Parser():
+class ArticleParser():
     def __init__(self):
         self.client = MongoClient(
             "mongodb://forichok:forichok1@185.246.152.112/daryana")
@@ -79,7 +76,6 @@ class Article_Parser():
         self.client.close()
 
     def readFromDB(self):
-        self.db_res_collection.drop()
         print(self.db_collection.count())
         all_a = []
         for article in self.db_collection.find():
@@ -98,7 +94,7 @@ class Article_Parser():
         print(json.dumps(values))
 
     def clearContent(self, content: string):
-        a = give_emoji_free_text(content.encode('utf8'))
+        a = giveEmojiFreeText(content.encode('utf8'))
         a_words = word_tokenize(a, language="russian")
 
         text = ' '
@@ -114,14 +110,14 @@ class Article_Parser():
                     text += p.normal_form + ' '
         return text
 
-    def createDefaultSet(self, dict):
+    def createDefaultSet(self, meaningsDict):
         self.db_res_collection.drop()
         self.def_set_collection.drop()
 
-        for meaning in dict:
+        for meaning in meaningsDict:
             meaningArticles = []
-            for articleUrl in dict[meaning]:
-                text = self.__load_from_db__(articleUrl)
+            for articleUrl in meaningsDict[meaning]:
+                text = self.loadStoryFromDb(articleUrl)
                 if text is None:
                     continue
 
@@ -129,30 +125,44 @@ class Article_Parser():
 
             print("\n" + meaning)
             head = self.calculateTfidf(meaningArticles)
-            self.__save_to_tfdif_db__(meaning, head)
+            self.saveMeaningValuesToDb(meaning, head)
             print(head)
-            self.__save_def_set_to_db__(meaning, dict[meaning])
-
+            self.saveDefUrlSetToDb(meaning, meaningsDict[meaning])
 
     def fitToDefaultSet(self, limit):
-        result = dict()
-        meaningsDefSet = self.__load_meaning_set_from__bd()
+        meaningsDefUrls = self.loadDefUrlSetFromDb()
+        meaningsDefSet = self.loadMeaningValuesFromDb()
         if meaningsDefSet is None:
             return
 
         parsedCount = 0
         for article in self.db_collection.find():
+            presentInArticle = False
+            for meaning in meaningsDefUrls:
+                if article['_id'] in meaningsDefUrls[meaning]:
+                    print(f"Skip article : {article['_id']}")
+                    presentInArticle = True
+                    break
+            if presentInArticle:
+                continue
+
             text = self.clearContent(article['content'])
             head = self.calculateTfidf([text])
-            print("\n\n" + article['_id'])
-            print(head)
+            # print("\n\n" + article['_id'])
+            # print(head)
             headDict = head['TF-IDF']
 
-            self.articleMeaning(headDict, meaningsDefSet)
+            articleMeaning = self.articleMeaning(headDict, meaningsDefSet)
+            if articleMeaning is None:
+                continue
+
+            meaningsDefUrls[articleMeaning].append(article['_id'])
+            print(f"#{parsedCount}: {article['_id']} add to -> {articleMeaning}")
 
             parsedCount += 1
             if parsedCount > limit:
                 break
+        return meaningsDefUrls
 
     def calculateTfidf(self, documents):
         tfidf_vectorizer = TfidfVectorizer(use_idf=True)
@@ -162,16 +172,15 @@ class Article_Parser():
         return df.head(30)
 
     def articleMeaning(self, words, meaningsDefSet):
-        defaultFitFunction(words, meaningsDefSet)
-        pass
+        return defaultFitFunction(words, meaningsDefSet)
 
-    def __save_to_tfdif_db__(self, meaning, dataFrame) -> None:
+    def saveMeaningValuesToDb(self, meaning, dataFrame) -> None:
         try:
             self.db_res_collection.insert_one(dict(_id=meaning, words=dataFrame.to_json(force_ascii=False)))
         except errors.DuplicateKeyError:
             return
 
-    def __load_meaning_set_from__bd(self):
+    def loadMeaningValuesFromDb(self):
         try:
             texts = [i for i in self.db_res_collection.find()]
             if len(texts) > 0:
@@ -185,7 +194,26 @@ class Article_Parser():
             return None
         pass
 
-    def __load_from_db__(self, _id: string) -> string:
+    def saveDefUrlSetToDb(self, id, listUrls) -> None:
+        try:
+            self.def_set_collection.insert_one(dict(_id=id, urls=json.dumps(listUrls)))
+        except errors.DuplicateKeyError:
+            return
+
+    def loadDefUrlSetFromDb(self):
+        try:
+            meanings = [i for i in self.def_set_collection.find()]
+            if len(meanings) > 0:
+                textsRepairedFromJson = dict()
+                for meaning in meanings:
+                    textsRepairedFromJson[meaning['_id']] = json.loads(meaning['urls'])
+                return textsRepairedFromJson
+            return None
+        except Exception:
+            return None
+        pass
+
+    def loadStoryFromDb(self, _id: string) -> string:
 
         try:
             texts = [i for i in self.db_collection.find({"_id": _id})]
@@ -195,16 +223,3 @@ class Article_Parser():
             return None
         except Exception:
             return None
-
-    def __save_to_db__(self, story: dict) -> None:
-        try:
-            self.db_collection.insert_one(story)
-            logging.info(f'Stories in DB: {self.db_collection.count()}')
-        except errors.DuplicateKeyError:
-            return
-
-    def __save_def_set_to_db__(self, id, listUrls) -> None:
-        try:
-            self.def_set_collection.insert_one(dict(_id=id, urls=json.dumps(listUrls)))
-        except errors.DuplicateKeyError:
-            return
