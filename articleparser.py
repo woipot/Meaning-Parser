@@ -87,6 +87,7 @@ class ArticleParser():
         """
         self.client = MongoClient(dbConnectionString)
         db = self.client.web_parser
+        """!IMPORTANT USING PIKABU COLLECTION FROM DB NOW"""
         self.db_collection = db.pikabu
         self.db_res_collection = db.parsed_article
         self.def_set_collection = db.def_set_parsed_articles

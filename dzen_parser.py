@@ -8,17 +8,15 @@ from pymongo import MongoClient, errors
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 
-from main_parser import Web_Parser
 
-
-class Dzen_Parser(Web_Parser):
+class Dzen_Parser:
     def __init__(self, urls, block_size: int, article_min_size: int, work_limit: int = 0):
         super().__init__(urls)
         self.block_size = block_size
         self.article_min_size = article_min_size
         self.work_limit = work_limit
 
-    def get_webdriver(self, path_to_webdriver_binary: str, is_headless: bool = True):
+    def get_webdriver(self, is_headless: bool = True):
 
         options = webdriver.ChromeOptions()
 
@@ -170,7 +168,27 @@ class Dzen_Parser(Web_Parser):
             except errors.DuplicateKeyError:
                 duplicates_count += 1
 
-        logging.info(f'Stories in DB: {db_count} + {len(parsed_stories)} - {duplicates_count} = {self.db_collection.count()}')
+        logging.info(
+            f'Stories in DB: {db_count} + {len(parsed_stories)} - {duplicates_count} = {self.db_collection.count()}')
 
 
+if __name__ == "__main__":
+    dzen_urls = [
+        "https://zen.yandex.ru/t/apple",
+        "https://zen.yandex.ru/t/iphone",
+        "https://zen.yandex.ru/t/ios",
+        "https://zen.yandex.ru/t/applemusic",
+        "https://zen.yandex.ru/t/macbook",
+        "https://zen.yandex.ru/t/ipad",
+        "https://zen.yandex.ru/t/mac",
+        "https://zen.yandex.ru/t/airpods",
+        "https://zen.yandex.ru/t/macos",
+        "https://zen.yandex.ru/t/faceid",
+        "https://zen.yandex.ru/t/lightning",
+        "https://zen.yandex.ru/appleinsider.ru",
+    ]
 
+    parser = Dzen_Parser(dzen_urls, 5, 100)
+    parser.get_webdriver(is_headless=False)
+    parser.get_db_collection()
+    parser.start_parse()
