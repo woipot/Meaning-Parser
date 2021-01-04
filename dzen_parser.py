@@ -11,7 +11,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 class Dzen_Parser:
     def __init__(self, urls, block_size: int, article_min_size: int, work_limit: int = 0):
-        super().__init__(urls)
+        self.urls = urls
         self.block_size = block_size
         self.article_min_size = article_min_size
         self.work_limit = work_limit
