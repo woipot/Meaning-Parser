@@ -17,7 +17,13 @@ from nltk.corpus import stopwords
 print(morph.parse('KDE')[0].normal_form)
 
 
-def giveEmojiFreeText(text):
+def giveEmojiFreeText(text: string) -> string:
+    """
+    part of text clean function
+
+    :param text: text with emoji
+    :return: text without emoji
+    """
     allchars = [str for str in text.decode('utf-8')]
     emoji_list = [c for c in allchars if c in emoji.UNICODE_EMOJI]
     clean_text = ' '.join([str for str in text.decode(
@@ -25,7 +31,14 @@ def giveEmojiFreeText(text):
     return clean_text
 
 
-def defaultFitFunction(headDict, meaningsDefSet):
+def defaultFitFunction(headDict: dict, meaningsDefSet: dict) -> string:
+    """
+    MAIN function to predict article meaning
+
+    :param headDict: TF of concrete article
+    :param meaningsDefSet: meanings with TF-IDF
+    :return: article meaning
+    """
     meaningsMathDict = dict()
 
     for meaning in meaningsDefSet:
@@ -52,10 +65,27 @@ def defaultFitFunction(headDict, meaningsDefSet):
     return None if resultValue is None else resultMeaning
 
 
+def calculateTfidf(documents: list):
+    """
+    see TfidfVectorizer of sklearn.feature_extraction.text documentations
+
+    :param documents: a list of documents
+    :return: TF-IDF dict head
+    """
+    tfidf_vectorizer = TfidfVectorizer(use_idf=True)
+    values = tfidf_vectorizer.fit_transform(documents)
+    df = pd.DataFrame(values[0].T.todense(), index=tfidf_vectorizer.get_feature_names(), columns=["TF-IDF"])
+    df = df.sort_values('TF-IDF', ascending=False)
+    return df.head(30)
+
+
 class ArticleParser():
-    def __init__(self):
-        self.client = MongoClient(
-            "mongodb://forichok:forichok1@185.246.152.112/daryana")
+    def __init__(self, dbConnectionString: string):
+        """
+            initialize mongo Data Base and download nltk packages
+            :param dbConnectionString: provide connection string to working db
+        """
+        self.client = MongoClient(dbConnectionString)
         db = self.client.web_parser
         self.db_collection = db.pikabu
         self.db_res_collection = db.parsed_article
@@ -75,25 +105,13 @@ class ArticleParser():
     def __del__(self):
         self.client.close()
 
-    def readFromDB(self):
-        print(self.db_collection.count())
-        all_a = []
-        for article in self.db_collection.find():
+    def clearContent(self, content: string) -> string:
+        """
+        clean article to make possible calculate TF-IDF and other calculations
 
-            text = self.clearContent(article['content'])
-
-            all_a.append(text)
-            if len(all_a) > 50:
-                print(len(all_a))
-                break
-
-        tfidf_vectorizer = TfidfVectorizer()
-        values = tfidf_vectorizer.fit_transform(all_a)
-        f_names = tfidf_vectorizer.get_feature_names()
-        shape = print(values.shape)
-        print(json.dumps(values))
-
-    def clearContent(self, content: string):
+        :param content: article content
+        :return: raw article content (without unnecessary)
+        """
         a = giveEmojiFreeText(content.encode('utf8'))
         a_words = word_tokenize(a, language="russian")
 
@@ -111,6 +129,18 @@ class ArticleParser():
         return text
 
     def createDefaultSet(self, meaningsDict):
+        """
+        This function take dictionary with articles and calculate TF-IDF HEAD to predict
+        meaning of any other articles in future
+        this predict set will be saved in database
+
+        !IMPORTANT you need to create first set by yourself (meanings.json for example)
+
+        :param meaningsDict: provide dict in next form ->
+        {
+            "ANY MEANING": ["lINK TO ARTICLE"]
+        }
+        """
         self.db_res_collection.drop()
         self.def_set_collection.drop()
 
@@ -124,12 +154,19 @@ class ArticleParser():
                 meaningArticles.append(self.clearContent(text['content']))
 
             print("\n" + meaning)
-            head = self.calculateTfidf(meaningArticles)
+            head = calculateTfidf(meaningArticles)
             self.saveMeaningValuesToDb(meaning, head)
             print(head)
             self.saveDefUrlSetToDb(meaning, meaningsDict[meaning])
 
-    def fitToDefaultSet(self, limit):
+    def fitToDefaultSet(self, limit: int) -> dict:
+        """
+        this function use default set from method ArticleParser.createDefaultSet and predict meaning of part
+        of articles from database to generate new training set for improve accuracy of predictions
+
+        :param limit: articles limit
+        :return: dict meanings with articles
+        """
         meaningsDefUrls = self.loadDefUrlSetFromDb()
         meaningsDefSet = self.loadMeaningValuesFromDb()
         if meaningsDefSet is None:
@@ -150,7 +187,7 @@ class ArticleParser():
                 continue
 
             text = self.clearContent(article['content'])
-            head = self.calculateTfidf([text])
+            head = calculateTfidf([text])
             # print("\n\n" + article['_id'])
             # print(head)
             headDict = head['TF-IDF']
@@ -167,15 +204,47 @@ class ArticleParser():
                 break
         return meaningsDefUrls
 
-    def calculateTfidf(self, documents):
-        tfidf_vectorizer = TfidfVectorizer(use_idf=True)
-        values = tfidf_vectorizer.fit_transform(documents)
-        df = pd.DataFrame(values[0].T.todense(), index=tfidf_vectorizer.get_feature_names(), columns=["TF-IDF"])
-        df = df.sort_values('TF-IDF', ascending=False)
-        return df.head(30)
+    @staticmethod
+    def articleMeaning(words: dict, meaningsDefSet: dict) -> string:
+        """
+        stub to easy change a predict function
 
-    def articleMeaning(self, words, meaningsDefSet):
+        :param words: TF_IDF data set of article
+        :param meaningsDefSet: TF-IDF of default dict meanings
+        :return: predicted article meaning
+        """
         return defaultFitFunction(words, meaningsDefSet)
+
+    def selfTeaching(self, articlesMaxCount: int, blockSize: int):
+        """
+        this function update default TF-IDF data set by parsing articles blocks
+        to improve accuracy of prediction. This function only a facade for fitToDefaultSet function
+
+        :param articlesMaxCount: articles to parse (the more the better)
+        :param blockSize: teaching block (the less the better [blockSize > then your first default teach block])
+        """
+        iteration = 1
+
+        if articlesMaxCount < blockSize:
+            currentBlock = articlesMaxCount
+        else:
+            currentBlock = blockSize
+
+        while articlesMaxCount > 0:
+            articlesMaxCount -= currentBlock
+
+            fitedList = self.fitToDefaultSet(currentBlock)
+            print(f"#{iteration}: New DEFAULT set is ready")
+            for i in fitedList:
+                print(f"{i} : {len(fitedList[i])}")
+
+            self.createDefaultSet(fitedList)
+
+            iteration += 1
+            if articlesMaxCount < blockSize:
+                currentBlock = articlesMaxCount
+            else:
+                currentBlock = blockSize
 
     def saveMeaningValuesToDb(self, meaning, dataFrame) -> None:
         try:
@@ -226,32 +295,3 @@ class ArticleParser():
             return None
         except Exception:
             return None
-
-    def selfTeaching(self, articleCount, blockSize):
-
-        iteration = 1
-
-        if articleCount < blockSize:
-            currentBlock = articleCount
-        else:
-            currentBlock = blockSize
-
-        while articleCount > 0:
-            articleCount -= currentBlock
-
-            fitedList = self.fitToDefaultSet(currentBlock)
-            print(f"#{iteration}: New DEFAULT set is ready")
-            for i in fitedList:
-                print(f"{i} : {len(fitedList[i])}")
-
-            self.createDefaultSet(fitedList)
-
-            iteration += 1
-            if articleCount < blockSize:
-                currentBlock = articleCount
-            else:
-                currentBlock = blockSize
-
-
-
-        pass
