@@ -26,16 +26,7 @@ if __name__ == "__main__":
 
     # article_parser.createDefaultSet(readBaseDataSetFromFile("meanings.json"))
 
-    timing = time.time()
-    fitedList = article_parser.fitToDefaultSet(2000)
-    print(f"\nNew DEF set ready")
-    for i in fitedList:
-        print(f"{i} : {len(fitedList[i])}")
-    print(f"\nEND time elapsed - {time.time() - timing}")
-
-
-    article_parser.createDefaultSet(fitedList)
-
+    article_parser.selfTeaching(200, 200)
 
     # pikabu_urls = [
     #     "https://pikabu.ru/tag/iphone",

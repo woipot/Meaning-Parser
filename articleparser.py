@@ -146,6 +146,9 @@ class ArticleParser():
             if presentInArticle:
                 continue
 
+            if 'content' not in article.keys():
+                continue
+
             text = self.clearContent(article['content'])
             head = self.calculateTfidf([text])
             # print("\n\n" + article['_id'])
@@ -223,3 +226,32 @@ class ArticleParser():
             return None
         except Exception:
             return None
+
+    def selfTeaching(self, articleCount, blockSize):
+
+        iteration = 1
+
+        if articleCount < blockSize:
+            currentBlock = articleCount
+        else:
+            currentBlock = blockSize
+
+        while articleCount > 0:
+            articleCount -= currentBlock
+
+            fitedList = self.fitToDefaultSet(currentBlock)
+            print(f"#{iteration}: New DEFAULT set is ready")
+            for i in fitedList:
+                print(f"{i} : {len(fitedList[i])}")
+
+            self.createDefaultSet(fitedList)
+
+            iteration += 1
+            if articleCount < blockSize:
+                currentBlock = articleCount
+            else:
+                currentBlock = blockSize
+
+
+
+        pass
