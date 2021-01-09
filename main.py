@@ -2,7 +2,7 @@ import json
 import logging
 
 from articleparser import ArticleParser
-
+from word_cloud_generator import generateImgs
 # from pikabu_parser import Pikabu_Parser
 # from nltk.tokenize import sent_tokenize, word_tokenize
 logging.basicConfig(format=u'[%(asctime)s] # %(levelname)-8s [%(filename)s] %(message)s',
@@ -22,10 +22,11 @@ if __name__ == "__main__":
     # logging.info('Program started')
     article_parser = ArticleParser("mongodb://forichok:forichok1@185.246.152.112/daryana")
 
+    article_parser.createDefaultSet(readBaseDataSetFromFile("meanings.json"))
 
-    # article_parser.createDefaultSet(readBaseDataSetFromFile("meanings.json"))
+    # article_parser.selfTeaching(2000, 200)
 
-    article_parser.selfTeaching(200, 200)
+    # generateImgs()
 
     # pikabu_urls = [
     #     "https://pikabu.ru/tag/iphone",
