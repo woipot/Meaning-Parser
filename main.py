@@ -20,14 +20,15 @@ if __name__ == "__main__":
     # from nltk.tokenize import sent_tokenize # разбивает на предложения
 
     # logging.info('Program started')
-    # article_parser = ArticleParser("mongodb://aqulasoft:aqulasoft1@185.246.152.112/daryana")
+    article_parser = ArticleParser("mongodb://aqulasoft:aqulasoft1@185.246.152.112/daryana")
 
     # article_parser.createDefaultSet(readBaseDataSetFromFile("meanings.json"))
 
     # article_parser.selfTeaching(2000, 200)
+    article_parser.classify(100)
 
-    generateImgs("last_def_set.json", "last_")
-    generateImgs("first_def_set.json", "first_")
+    # generateImgs("last_def_set.json", "last_")
+    # generateImgs("first_def_set.json", "first_")
 
     # pikabu_urls = [
     #     "https://pikabu.ru/tag/iphone",

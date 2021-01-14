@@ -17,6 +17,76 @@ from nltk.corpus import stopwords
 print(morph.parse('KDE')[0].normal_form)
 
 
+
+
+
+
+
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import SGDClassifier
+from sklearn.neighbors import KNeighborsClassifier
+
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
+from random import randint
+import numpy as np
+from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
+from collections import Counter
+
+from collections import defaultdict
+from nltk.probability import FreqDist
+
+classifiers = [
+    KNeighborsClassifier,
+    SGDClassifier,
+    RandomForestClassifier
+]
+
+classifier_dict = {
+    KNeighborsClassifier: [],
+    SGDClassifier: [],
+    RandomForestClassifier: []
+}
+
+counts_classifiers_dict = {
+    KNeighborsClassifier: [],
+    SGDClassifier: [],
+    RandomForestClassifier: []
+}
+
+import os
+from os import path
+from wordcloud import WordCloud
+
+
+
+def write_to_file(texts, labels, name):
+    d = path.dirname(__file__) if "__file__" in locals() else os.getcwd()
+    with open(path.join(d, "classifier", name), 'w') as f:
+        for i, text in enumerate(texts):
+            f.write(f"{texts[i]}\n")
+            f.write(f"{labels[i]}\n")
+
+def get_max_and_avg(list_):
+  if list_:
+    return max(list_), sum(list_) / len(list_)
+
+
+
+
+
+
+
+
+
+
+
 def giveEmojiFreeText(text: string) -> string:
     """
     part of text clean function
@@ -86,7 +156,7 @@ class ArticleParser():
             :param dbConnectionString: provide connection string to working db
         """
         self.client = MongoClient(dbConnectionString)
-        db = self.client.web_parser
+        db = self.client.daryana1
         """!IMPORTANT USING PIKABU COLLECTION FROM DB NOW"""
         self.db_collection = db.pikabu
         self.db_res_collection = db.parsed_article
@@ -102,6 +172,81 @@ class ArticleParser():
         nltk.download('punkt')
         nltk.download('stopwords')
         self.stop_words = set(stopwords.words('russian'))
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+    def classify(self, limit: int) -> dict:
+        story = dict(_id='id1',
+                             content="content", meaning='meaning')
+        # texts = [i for i in self.db_res_collection.find()]
+        # self.db_collection.insert_one(story)
+        articles = []
+        opinions = []
+        count=0
+        for article in self.db_collection.find():
+            if "meaning" not in article or "content" not in article:
+                continue
+            
+            if article['meaning'] == 'meaning':
+                continue
+            if count>=limit:
+                break
+            count = count+1
+            articles.append(self.clearContent(article['content']))
+            opinions.append(article['meaning'])
+            
+        for classifier in classifiers:
+            text_clf = Pipeline([
+                                ('tfidf', TfidfVectorizer()),
+                                ('clf', classifier())
+                                ])
+            j = 10
+            for i in range(j):
+                tmp = articles.copy()
+                tmp_labels = opinions.copy()
+                randomed = randint(0, len(articles)-j)
+                basic_texts = tmp[randomed:randomed+j]
+                basic_labels = tmp_labels[randomed:randomed+j]
+                # basic_texts = fix(basic_texts)
+                #basic_texts, basic_labels = remove_big_and_small(basic_texts, basic_labels)
+                print(i)
+                text_clf.fit(basic_texts, basic_labels)
+                del tmp[randomed:randomed+len(basic_texts)]
+                del tmp_labels[randomed:randomed+len(basic_texts)]
+                predict = tmp.copy()
+                predicted = text_clf.predict(predict)
+                classifier_dict[classifier].append(accuracy_score(tmp_labels, predicted))
+                c = Counter(predicted)
+                counts_classifiers_dict[classifier].append([c['мошеничество'],c['технологии'],c['Глупые пользователи'],c['критика'],c['ремонт']])
+            write_to_file(tmp, tmp_labels, f"{classifier}_{accuracy_score(tmp_labels, predicted)}")
+        
+        
+        for classifier in classifier_dict.keys():
+            print(classifier, get_max_and_avg(classifier_dict[classifier]))
+            
+        for classifier in counts_classifiers_dict.keys():
+            print(classifier, counts_classifiers_dict[classifier])
+        
+        
+        
+        
+        
+        
+        
+        
 
     def __del__(self):
         self.client.close()
