@@ -27,7 +27,7 @@ if __name__ == "__main__":
     # article_parser.selfTeaching(2000, 200)
     article_parser.classify(100)
 
-    # generateImgs("last_def_set.json", "last_")
+    generateImgs()
     # generateImgs("first_def_set.json", "first_")
 
     # pikabu_urls = [
