@@ -52,8 +52,9 @@ counts_classifiers_dict = {
     RandomForestClassifier: []
 }
 
-usual_words = [    'год', 'часто', 'ещё', 'еще', 'человек', 'год',
-                'свой', 'весь', 'который']
+usual_words = ['год', 'часто', 'ещё', 'еще', 'человек', 'год', 'мочь', 'сказать'
+               'свой', 'весь', 'который']
+
 
 def write_to_file(texts, labels, name):
     d = path.dirname(__file__) if "__file__" in locals() else os.getcwd()
@@ -178,6 +179,10 @@ class ArticleParser():
 
         j = 25
         print(len(articles))
+
+        cls_names = ['KNeighborsClassifier',
+                     'RandomForestClassifier', 'SGDClassifier']
+        cls_index = 0
         for classifier in classifiers:
             text_clf = Pipeline([
                                 ('tfidf', TfidfVectorizer()),
@@ -202,7 +207,8 @@ class ArticleParser():
                 counts_classifiers_dict[classifier].append(
                     [c['мошенничество'], c['технологии'], c['глупые пользователи'], c['проблема'], c['ремонт']])
             write_to_file(
-                tmp, tmp_labels, f"{classifier}_{accuracy_score(tmp_labels, predicted)}")
+                tmp, tmp_labels, f"{cls_names[cls_index]}")
+            cls_index += 1
 
         for classifier in classifier_dict.keys():
             print(classifier, get_max_and_avg(classifier_dict[classifier]))
@@ -227,12 +233,12 @@ class ArticleParser():
         pattern = re.compile("^[^\d\W]+$")
 
         for word in a_words:
-            if word not in self.stop_words and pattern.match(word) and word not in usual_words:
-                p = morph.parse(word.translate(
-                    str.maketrans('', '', string.punctuation)))[0]
-                functors_pos = {'INTJ', 'PRCL', 'CONJ',
-                                'PREP', 'NPRO', 'NUMR'}
-                if p.tag.POS is not None and p.tag.POS not in functors_pos:
+            p = morph.parse(word.translate(
+                str.maketrans('', '', string.punctuation)))[0]
+            functors_pos = {'INTJ', 'PRCL', 'CONJ',
+                            'PREP', 'NPRO', 'NUMR'}
+            if p.tag.POS is not None and p.tag.POS not in functors_pos:
+                if p.normal_form not in self.stop_words and pattern.match(p.normal_form) and p.normal_form not in usual_words:
                     text += p.normal_form + ' '
         return text
 

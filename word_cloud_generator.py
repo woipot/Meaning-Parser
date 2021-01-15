@@ -51,6 +51,6 @@ def generateFromFile(path, classifierName):
 
 
 def generate(meaning, data, pref):
-    wordcloud = WordCloud().generate_from_frequencies(data)
+    wordcloud = WordCloud(max_words=20).generate_from_frequencies(data)
     d = path.dirname(__file__) if "__file__" in locals() else os.getcwd()
     wordcloud.to_file(path.join(d, 'img/' + pref + "_" + meaning + '.png'))
