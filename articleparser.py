@@ -1,3 +1,21 @@
+from wordcloud import WordCloud
+from os import path
+import os
+from nltk.probability import FreqDist
+from collections import defaultdict
+from collections import Counter
+from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
+import numpy as np
+from random import randint
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import SGDClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier
+from nltk.corpus import stopwords
 import json
 import re
 import ssl
@@ -12,35 +30,9 @@ from pymongo import MongoClient, errors
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 morph = pymorphy2.MorphAnalyzer()
-from nltk.corpus import stopwords
 
 print(morph.parse('KDE')[0].normal_form)
 
-
-
-
-
-
-
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.pipeline import Pipeline
-from sklearn.linear_model import SGDClassifier
-from sklearn.neighbors import KNeighborsClassifier
-
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.svm import SVC
-from random import randint
-import numpy as np
-from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
-from collections import Counter
-
-from collections import defaultdict
-from nltk.probability import FreqDist
 
 classifiers = [
     KNeighborsClassifier,
@@ -60,11 +52,6 @@ counts_classifiers_dict = {
     RandomForestClassifier: []
 }
 
-import os
-from os import path
-from wordcloud import WordCloud
-
-
 
 def write_to_file(texts, labels, name):
     d = path.dirname(__file__) if "__file__" in locals() else os.getcwd()
@@ -73,18 +60,10 @@ def write_to_file(texts, labels, name):
             f.write(f"{texts[i]}\n")
             f.write(f"{labels[i]}\n")
 
+
 def get_max_and_avg(list_):
-  if list_:
-    return max(list_), sum(list_) / len(list_)
-
-
-
-
-
-
-
-
-
+    if list_:
+        return max(list_), sum(list_) / len(list_)
 
 
 def giveEmojiFreeText(text: string) -> string:
@@ -131,7 +110,8 @@ def defaultFitFunction(headDict: dict, meaningsDefSet: dict) -> string:
             resultValue = meaningsMathDict[meaning]
             resultMeaning = meaning
 
-    print(f'Meaning = {resultMeaning}; near in (best match is 0): {resultValue}')
+    print(
+        f'Meaning = {resultMeaning}; near in (best match is 0): {resultValue}')
     return None if resultValue is None else resultMeaning
 
 
@@ -144,7 +124,8 @@ def calculateTfidf(documents: list):
     """
     tfidf_vectorizer = TfidfVectorizer(use_idf=True)
     values = tfidf_vectorizer.fit_transform(documents)
-    df = pd.DataFrame(values[0].T.todense(), index=tfidf_vectorizer.get_feature_names(), columns=["TF-IDF"])
+    df = pd.DataFrame(values[0].T.todense(
+    ), index=tfidf_vectorizer.get_feature_names(), columns=["TF-IDF"])
     df = df.sort_values('TF-IDF', ascending=False)
     return df.head(30)
 
@@ -172,81 +153,60 @@ class ArticleParser():
         nltk.download('punkt')
         nltk.download('stopwords')
         self.stop_words = set(stopwords.words('russian'))
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
     def classify(self, limit: int) -> dict:
         story = dict(_id='id1',
-                             content="content", meaning='meaning')
+                     content="content", meaning='meaning')
         # texts = [i for i in self.db_res_collection.find()]
         # self.db_collection.insert_one(story)
         articles = []
         opinions = []
-        count=0
+        count = 0
         for article in self.db_collection.find():
             if "meaning" not in article or "content" not in article:
                 continue
-            
+
             if article['meaning'] == 'meaning':
                 continue
-            if count>=limit:
+            if count >= limit:
                 break
             count = count+1
             articles.append(self.clearContent(article['content']))
             opinions.append(article['meaning'])
-            
+
+        j = 10
+        print(len(articles))
         for classifier in classifiers:
             text_clf = Pipeline([
                                 ('tfidf', TfidfVectorizer()),
                                 ('clf', classifier())
                                 ])
-            j = 10
+
             for i in range(j):
                 tmp = articles.copy()
                 tmp_labels = opinions.copy()
                 randomed = randint(0, len(articles)-j)
                 basic_texts = tmp[randomed:randomed+j]
                 basic_labels = tmp_labels[randomed:randomed+j]
-                # basic_texts = fix(basic_texts)
-                #basic_texts, basic_labels = remove_big_and_small(basic_texts, basic_labels)
                 print(i)
                 text_clf.fit(basic_texts, basic_labels)
                 del tmp[randomed:randomed+len(basic_texts)]
                 del tmp_labels[randomed:randomed+len(basic_texts)]
                 predict = tmp.copy()
                 predicted = text_clf.predict(predict)
-                classifier_dict[classifier].append(accuracy_score(tmp_labels, predicted))
+                classifier_dict[classifier].append(
+                    accuracy_score(tmp_labels, predicted))
                 c = Counter(predicted)
-                counts_classifiers_dict[classifier].append([c['мошеничество'],c['технологии'],c['Глупые пользователи'],c['критика'],c['ремонт']])
-            write_to_file(tmp, tmp_labels, f"{classifier}_{accuracy_score(tmp_labels, predicted)}")
-        
-        
+                counts_classifiers_dict[classifier].append(
+                    [c['мошеничество'], c['технологии'], c['глупые пользователи'], c['проблема'], c['ремонт']])
+            write_to_file(
+                tmp, tmp_labels, f"{classifier}_{accuracy_score(tmp_labels, predicted)}")
+
         for classifier in classifier_dict.keys():
             print(classifier, get_max_and_avg(classifier_dict[classifier]))
-            
+
         for classifier in counts_classifiers_dict.keys():
             print(classifier, counts_classifiers_dict[classifier])
-        
-        
-        
-        
-        
-        
-        
-        
 
     def __del__(self):
         self.client.close()
@@ -343,7 +303,8 @@ class ArticleParser():
                 continue
 
             meaningsDefUrls[articleMeaning].append(article['_id'])
-            print(f"#{parsedCount}: {article['_id']} add to -> {articleMeaning}")
+            print(
+                f"#{parsedCount}: {article['_id']} add to -> {articleMeaning}")
 
             parsedCount += 1
             if parsedCount > limit:
@@ -394,7 +355,8 @@ class ArticleParser():
 
     def saveMeaningValuesToDb(self, meaning, dataFrame) -> None:
         try:
-            self.db_res_collection.insert_one(dict(_id=meaning, words=dataFrame.to_json(force_ascii=False)))
+            self.db_res_collection.insert_one(
+                dict(_id=meaning, words=dataFrame.to_json(force_ascii=False)))
         except errors.DuplicateKeyError:
             return
 
@@ -404,7 +366,8 @@ class ArticleParser():
             if len(texts) > 0:
                 textsRepairedFromJson = dict()
                 for meaning in texts:
-                    textsRepairedFromJson[meaning['_id']] = json.loads(meaning['words'])['TF-IDF']
+                    textsRepairedFromJson[meaning['_id']] = json.loads(meaning['words'])[
+                        'TF-IDF']
                 return textsRepairedFromJson
 
             return None
@@ -414,7 +377,8 @@ class ArticleParser():
 
     def saveDefUrlSetToDb(self, id, listUrls) -> None:
         try:
-            self.def_set_collection.insert_one(dict(_id=id, urls=json.dumps(listUrls)))
+            self.def_set_collection.insert_one(
+                dict(_id=id, urls=json.dumps(listUrls)))
         except errors.DuplicateKeyError:
             return
 
@@ -424,7 +388,8 @@ class ArticleParser():
             if len(meanings) > 0:
                 textsRepairedFromJson = dict()
                 for meaning in meanings:
-                    textsRepairedFromJson[meaning['_id']] = json.loads(meaning['urls'])
+                    textsRepairedFromJson[meaning['_id']
+                                          ] = json.loads(meaning['urls'])
                 return textsRepairedFromJson
             return None
         except Exception:
