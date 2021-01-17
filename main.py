@@ -25,8 +25,9 @@ if __name__ == "__main__":
     # article_parser.createDefaultSet(readBaseDataSetFromFile("meanings.json"))
 
     # article_parser.selfTeaching(2000, 200)
-    article_parser.classify(100)
-
+    # article_parser.resetMeanings()
+    # article_parser.setMeanings()
+    article_parser.classify()
     generateImgs()
     # generateImgs("first_def_set.json", "first_")
 

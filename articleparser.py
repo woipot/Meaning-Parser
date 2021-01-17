@@ -52,7 +52,7 @@ counts_classifiers_dict = {
     RandomForestClassifier: []
 }
 
-usual_words = ['год', 'часто', 'ещё', 'еще', 'человек', 'год', 'мочь', 'сказать'
+usual_words = ['год', 'часто', 'ещё', 'еще', 'человек', 'год', 'мочь', 'сказать', 'устройство', 'смартфон', 'телефон', 'работать', 'файл', 'новый', 'игра', 'приложение', 'компания', 'время', 'мой', 'сделать', 'очень', 'хотеть', 'мир', 'наш', 'ваш', 'самый', 
                'свой', 'весь', 'который']
 
 
@@ -140,7 +140,7 @@ class ArticleParser():
             :param dbConnectionString: provide connection string to working db
         """
         self.client = MongoClient(dbConnectionString)
-        db = self.client.daryana1
+        db = self.client.web_parser
         """!IMPORTANT USING PIKABU COLLECTION FROM DB NOW"""
         self.db_collection = db.pikabu
         self.db_res_collection = db.parsed_article
@@ -157,11 +157,7 @@ class ArticleParser():
         nltk.download('stopwords')
         self.stop_words = set(stopwords.words('russian'))
 
-    def classify(self, limit: int) -> dict:
-        story = dict(_id='id1',
-                     content="content", meaning='meaning')
-        # texts = [i for i in self.db_res_collection.find()]
-        # self.db_collection.insert_one(story)
+    def classify(self) -> dict:
         articles = []
         opinions = []
         count = 0
@@ -169,15 +165,13 @@ class ArticleParser():
             if "meaning" not in article or "content" not in article:
                 continue
 
-            if article['meaning'] == 'meaning':
+            if article['meaning'] == '' or article['meaning'] == None:
                 continue
-            if count >= limit:
-                break
             count = count+1
             articles.append(self.clearContent(article['content']))
             opinions.append(article['meaning'])
 
-        j = 25
+        j = 10
         print(len(articles))
 
         cls_names = ['KNeighborsClassifier',
@@ -205,7 +199,7 @@ class ArticleParser():
                     accuracy_score(tmp_labels, predicted))
                 c = Counter(predicted)
                 counts_classifiers_dict[classifier].append(
-                    [c['мошенничество'], c['технологии'], c['глупые пользователи'], c['проблема'], c['ремонт']])
+                    [c['мошенничество'], c['технологии'], c['реклама'], c['критика'], c['ремонт']])
             write_to_file(
                 tmp, tmp_labels, f"{cls_names[cls_index]}")
             cls_index += 1
@@ -215,6 +209,37 @@ class ArticleParser():
 
         for classifier in counts_classifiers_dict.keys():
             print(classifier, counts_classifiers_dict[classifier])
+
+    def setMeanings(self):
+        articles = []
+        opinions = []
+        for article in self.db_collection.find():
+            if "meaning" not in article or "content" not in article:
+                continue
+
+            if article['meaning'] == '' or article['meaning'] == None:
+                continue
+            articles.append(self.clearContent(article['content']))
+            opinions.append(article['meaning'])
+
+        text_clf = Pipeline([
+            ('tfidf', TfidfVectorizer()),
+            ('clf', SGDClassifier())
+        ])
+        text_clf.fit(articles, opinions)
+
+        texts = [i for i in self.db_collection.find()]
+        contents = [i['content'] for i in texts]
+        predicted = text_clf.predict(contents)
+
+        for i, p in enumerate(predicted):
+            self.db_collection.update_one({
+                    '_id': texts[i]['_id']
+                }, {
+                    '$set': {
+                        'predicted_meaning': p
+                    }
+                }, upsert=False)
 
     def __del__(self):
         self.client.close()
@@ -257,6 +282,7 @@ class ArticleParser():
         """
         self.db_res_collection.drop()
         self.def_set_collection.drop()
+        self.resetMeanings()
 
         for meaning in meaningsDict:
             meaningArticles = []
@@ -266,12 +292,29 @@ class ArticleParser():
                     continue
 
                 meaningArticles.append(self.clearContent(text['content']))
+                self.db_collection.update_one({
+                    '_id': text['_id']
+                }, {
+                    '$set': {
+                        'meaning': meaning
+                    }
+                }, upsert=False)
 
             print("\n" + meaning)
             head = calculateTfidf(meaningArticles)
             self.saveMeaningValuesToDb(meaning, head)
             print(head)
             self.saveDefUrlSetToDb(meaning, meaningsDict[meaning])
+
+    def resetMeanings(self):
+        for article in self.db_collection.find():
+            self.db_collection.update_one({
+                '_id': article['_id']
+            }, {
+                '$set': {
+                    'meaning': None
+                }
+            }, upsert=False)
 
     def fitToDefaultSet(self, limit: int) -> dict:
         """
